@@ -19,7 +19,7 @@
 typedef struct bala {
 	int x = -1;
 	int y = -1;
-	int velocidad = 20;
+	int velocidad = 2;
 	bool direccion = false;		//1 iz, 0 der
 	bool estado = true;
 	bool playerShot = false;
@@ -36,7 +36,7 @@ typedef struct nave {
 	int velocidad = 10;
 	bool estado = true;
 	int hitBoxX = 50;
-	int hitBoxY = 50;
+	int hitBoxY = 25;
 	nave* siguiente = NULL;
 	int disparos = 0;
 	int enemigosDestruidos = 0;
@@ -47,10 +47,13 @@ typedef struct Enemigo {
 	int codigoimagen = -1;
 	int x = -1;
 	int y = -1;
-	bool estado = true;
-	int velocidad = 5;
+	bool estado = false;
+	int velocidad = 0;
+	int hitboxX = 50;
+	int hitboxY = 50;
 	Enemigo* siguiente = NULL;
 	unsigned int lifeTime = 9500000;
+	ALLEGRO_BITMAP* img = NULL;
 }*PtrEnemigo;
 
 const float FPS = 20.0;	//fps 
@@ -78,7 +81,6 @@ void drawBullets(ALLEGRO_BITMAP* bullet) {
 		if (balAct->x > offsetx-600 && balAct->x < (offsetx + 600)) {
 			al_draw_bitmap(bullet, ((balAct->x) - (offsetx-600)) - 12, balAct->y-12, 0);
 		}
-		std::cout << "Offsetx: " << offsetx << " " << ((balAct->x) - offsetx) - 12 << " (x,y): " << balAct->x << " " << balAct->y << std::endl;
 		balAct->x += (balAct->direccion) ? (-1*(balAct->velocidad)) : (balAct->velocidad);
 		balAct = balAct->suiguiente;
 	}
@@ -115,7 +117,7 @@ void eleminarBalaInact() {
 void eliminarBalas() {
 	PtrBala tmp = balas;
 	while (tmp) {
-		if (tmp->x > 2000 || tmp->x < 0) 
+		if (tmp->x > (2000-tmp->hurtboxX) || tmp->x < (0+tmp->hurtboxX)) 
 			tmp->estado = false;
 		tmp = tmp->suiguiente;
 	}
@@ -126,9 +128,21 @@ void spawnEnems() {
 }
 void bulletHits(PtrNave actual) {		//TODO: finish
 	PtrBala tmp = balas;
+	PtrEnemigo tmpEnem= enemigos;
+	while (tmp){
+		std::cout << "condX: " << (actual->x + actual->hitBoxX > tmp->x - tmp->hurtboxX && actual->x - actual->hitBoxX < tmp->x + tmp->hurtboxX) << " condY: " << (actual->y + actual->hitBoxY > tmp->y - tmp->hurtboxY && actual->y - actual->hitBoxY < tmp->y + tmp->hurtboxY) << std::endl;
+		while (tmpEnem) {
+			if (tmp->playerShot && tmp->estado && (tmpEnem->x + tmpEnem->hitboxX > tmp->x - tmp->hurtboxX && tmpEnem->x - tmpEnem->hitboxX < tmp->x + tmp->hurtboxX)&& (tmpEnem->y + tmpEnem->hitboxY > tmp->y - tmp->hurtboxY && tmpEnem->y - tmpEnem->hitboxY < tmp->y + tmp->hurtboxY)) {
+				actual->enemigosDestruidos += 1;
+				tmpEnem->estado = false;
 
-	while (balas){
+				//TODO: comprobar funcionamiento
+			}
+			else if ((!tmp->playerShot) && tmp->estado && (tmpEnem->x + tmpEnem->hitboxX > tmp->x - tmp->hurtboxX && tmpEnem->x - tmpEnem->hitboxX < tmp->x + tmp->hurtboxX) && (tmpEnem->y + tmpEnem->hitboxY > tmp->y - tmp->hurtboxY && tmpEnem->y - tmpEnem->hitboxY < tmp->y + tmp->hurtboxY)) {
 
+			}
+				tmpEnem = tmpEnem->siguiente;
+		}
 		tmp = tmp->suiguiente;
 	}
 }
@@ -137,7 +151,6 @@ void gameLogic(ALLEGRO_BITMAP* bullet, ALLEGRO_BITMAP* ship,PtrNave actual) {
 	eliminarBalas();
 	drawBullets(bullet);
 	drawLifes(ship);
-
 }
 
 void mainGame(ALLEGRO_DISPLAY* display,ALLEGRO_BITMAP* background,ALLEGRO_EVENT_QUEUE* cola_eventos) {
@@ -239,7 +252,7 @@ void mainGame(ALLEGRO_DISPLAY* display,ALLEGRO_BITMAP* background,ALLEGRO_EVENT_
 		al_draw_bitmap(background, -1*(offsetx-600), 0, 0);
 		al_draw_bitmap(ship, 550, actual->y-50, 0);
 		if (events.type == ALLEGRO_EVENT_MOUSE_BUTTON_DOWN||(events.type== ALLEGRO_EVENT_KEY_DOWN&& events.keyboard.keycode==75)) {
-			disparar((actual->x+((ship==ship_L)?(-50):(50))), actual->y, (ship == ship_L) ? (true) : (false), true);
+			disparar((actual->x+((ship==ship_L)?(-1*actual->hitBoxX):(actual->hitBoxX))), actual->y, (ship == ship_L) ? (true) : (false), true);
 			actual->disparos += 1;
 			std::cout << "Nave x: " << actual->x << " y: " << actual->y << " Disparos: " << actual->disparos << std::endl;
 			//std::cout << "Nave x: " << actual->x << " y: " << actual->y << " Disparos: " << actual->disparos << std::endl;
@@ -322,11 +335,13 @@ void inicializar() {
 		vidas = tmp;
 	}
 	PtrEnemigo tmpE;
-	for (int i = 0; i < 20; i++)
+	
+	for (int i = 0; i < 10; i++)
 	{
 		tmpE = new(Enemigo);
 		tmpE->siguiente = enemigos;
 		enemigos = tmpE;
+
 	}
 }
 
