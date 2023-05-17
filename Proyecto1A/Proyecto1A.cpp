@@ -19,22 +19,28 @@
 typedef struct bala {
 	int x = -1;
 	int y = -1;
-	int velocidad = 5;
-	bool direccion = false;
+	int velocidad = 20;
+	bool direccion = false;		//1 iz, 0 der
 	bool estado = true;
+	bool playerShot = false;
+	int hurtboxX = 12;
+	int hurtboxY = 12;
 	bala* suiguiente = NULL;
 	bala* anterior = NULL;
 }*PtrBala;
 
 typedef struct nave {
-	int codigo;
-	int x = 1200/2;
-	int y = 800/2;
+	int codigo = -1;
+	int x = 1000;
+	int y = 400;
 	int velocidad = 10;
 	bool estado = true;
-	int hurtBoxX = 25;
-	int hurtBoxY = 15;
+	int hitBoxX = 50;
+	int hitBoxY = 50;
 	nave* siguiente = NULL;
+	int disparos = 0;
+	int enemigosDestruidos = 0;
+	int missed = 0;
 }*PtrNave;
 
 typedef struct Enemigo {
@@ -44,14 +50,18 @@ typedef struct Enemigo {
 	bool estado = true;
 	int velocidad = 5;
 	Enemigo* siguiente = NULL;
+	unsigned int lifeTime = 9500000;
 }*PtrEnemigo;
 
-const float FPS = 30.0;	//fps 
+const float FPS = 20.0;	//fps 
 PtrBala balas;
 PtrNave vidas;
 PtrEnemigo enemigos;
 bool left, right, up, down;
-
+int offsetx = 1000; int offsety = 0;
+int absx = 1000;
+int absy = 400;
+ 
 void drawLifes(ALLEGRO_BITMAP* ship) {
 	int i= (vidas->estado) ? (3) : ((vidas->siguiente->estado) ? (2) : ((vidas->siguiente->siguiente->estado) ? (1) : (0)));
 	int x = 0;
@@ -65,13 +75,15 @@ void drawBullets(ALLEGRO_BITMAP* bullet) {
 	PtrBala balAct = balas;
 	while (balAct)
 	{	
-		
-		al_draw_bitmap(bullet, balAct->x, balAct->y, 0);
+		if (balAct->x > offsetx-600 && balAct->x < (offsetx + 600)) {
+			al_draw_bitmap(bullet, ((balAct->x) - (offsetx-600)) - 12, balAct->y-12, 0);
+		}
+		std::cout << "Offsetx: " << offsetx << " " << ((balAct->x) - offsetx) - 12 << " (x,y): " << balAct->x << " " << balAct->y << std::endl;
 		balAct->x += (balAct->direccion) ? (-1*(balAct->velocidad)) : (balAct->velocidad);
 		balAct = balAct->suiguiente;
 	}
 }
-void disparar(int x,int y,bool iz) {
+void disparar(int x,int y,bool iz,bool user) {
 	PtrBala tmp = new(bala);
 	tmp->x = x;
 	tmp->y = y;
@@ -99,16 +111,33 @@ void eleminarBalaInact() {
 			tmp = tmp->suiguiente;
 		}
 	}
-
-	//TODO: acabaar esat funcion que elimina
 }
 void eliminarBalas() {
 	PtrBala tmp = balas;
 	while (tmp) {
-		if (tmp->x > 2000 || tmp->x < 0) tmp->estado = false;
+		if (tmp->x > 2000 || tmp->x < 0) 
+			tmp->estado = false;
 		tmp = tmp->suiguiente;
 	}
 	eleminarBalaInact();
+}
+void spawnEnems() {
+	//TODO: hacerla :/
+}
+void bulletHits(PtrNave actual) {		//TODO: finish
+	PtrBala tmp = balas;
+
+	while (balas){
+
+		tmp = tmp->suiguiente;
+	}
+}
+void gameLogic(ALLEGRO_BITMAP* bullet, ALLEGRO_BITMAP* ship,PtrNave actual) {
+	bulletHits(actual);
+	eliminarBalas();
+	drawBullets(bullet);
+	drawLifes(ship);
+
 }
 
 void mainGame(ALLEGRO_DISPLAY* display,ALLEGRO_BITMAP* background,ALLEGRO_EVENT_QUEUE* cola_eventos) {
@@ -117,9 +146,6 @@ void mainGame(ALLEGRO_DISPLAY* display,ALLEGRO_BITMAP* background,ALLEGRO_EVENT_
 		al_show_native_message_box(display, "Error", "NO tiene mas vidas", "No tiene mas vidas", "Acepto", NULL);
 		return;
 	}
-	int absx = 1200 / 2;
-	int absy = 800 / 2;
-	int offsetx = -480; int offsety = 0;
 	background = al_load_bitmap("DefenderMap.png");
 	ALLEGRO_BITMAP* ship,* ship_R, * ship_L;
 	ship_R= al_load_bitmap("shipRight.png");
@@ -128,7 +154,7 @@ void mainGame(ALLEGRO_DISPLAY* display,ALLEGRO_BITMAP* background,ALLEGRO_EVENT_
 	ship = ship_R;
 	if (!background||!ship||!ship_L||!bullet)
 	{
-		al_show_native_message_box(display, "Error", "Su maquina no tiene una de las fuentes necesarias para cargar", "La imagen no se pudo cargar", "Acepto", NULL);
+		al_show_native_message_box(display, "Error", "Su maquina no tiene una de las fuentes necesarias para cargar", "Una imagen no se pudo cargar", "Acepto", NULL);
 		return;
 	}
 	al_draw_bitmap(background, offsetx, 0, 0);
@@ -208,33 +234,41 @@ void mainGame(ALLEGRO_DISPLAY* display,ALLEGRO_BITMAP* background,ALLEGRO_EVENT_
 		}
 		if (up) {actual->y -= actual->velocidad; }
 		if (down) { actual->y += actual->velocidad; }
-		if (left) { actual->x += actual->velocidad; offsetx += actual->velocidad; ship = ship_L; }
-		if (right) { actual->x -= actual->velocidad; offsetx -= actual->velocidad; ship = ship_R; }
-		al_draw_bitmap(background, offsetx, 0, 0);
-		al_draw_bitmap(ship, 600, actual->y, 0);
-		if (events.type == ALLEGRO_EVENT_MOUSE_BUTTON_DOWN) {
-			disparar(actual->x, actual->y, (ship == ship_L) ? (true) : (false));
+		if (left) { actual->x -= actual->velocidad; offsetx -= actual->velocidad; ship = ship_L; }
+		if (right) { actual->x += actual->velocidad; offsetx += actual->velocidad; ship = ship_R; }
+		al_draw_bitmap(background, -1*(offsetx-600), 0, 0);
+		al_draw_bitmap(ship, 550, actual->y-50, 0);
+		if (events.type == ALLEGRO_EVENT_MOUSE_BUTTON_DOWN||(events.type== ALLEGRO_EVENT_KEY_DOWN&& events.keyboard.keycode==75)) {
+			disparar((actual->x+((ship==ship_L)?(-50):(50))), actual->y, (ship == ship_L) ? (true) : (false), true);
+			actual->disparos += 1;
+			std::cout << "Nave x: " << actual->x << " y: " << actual->y << " Disparos: " << actual->disparos << std::endl;
+			//std::cout << "Nave x: " << actual->x << " y: " << actual->y << " Disparos: " << actual->disparos << std::endl;
 		}
-		eliminarBalas();
-		drawBullets(bullet);
-		drawLifes(ship_L);
+		gameLogic(bullet, ship_L,actual);
 		al_flip_display();
 
-		//TODO: cerrar todas la imagenes para no tener basura por ahi
+		//TODO: cerrar todas la imagenes para no tener tanta basura por ahi
 	}
+
+
+	al_destroy_bitmap(ship);
+	al_destroy_bitmap(ship_L);
+	al_destroy_bitmap(ship_R);
+
 }
 
 void menu(ALLEGRO_DISPLAY* display, ALLEGRO_BITMAP* background, ALLEGRO_EVENT_QUEUE* cola_eventos, ALLEGRO_TIMER* timer) {
 	background = al_load_bitmap("Fondo.png");
-	ALLEGRO_BITMAP* back_A, *back_B, *back_C;
+	ALLEGRO_BITMAP* back_A, *back_B, *back_C,*back_D;
 	back_A = background;
-	back_B = al_load_bitmap("FondoA.png");
-	back_C = al_load_bitmap("FondoB.png");
+	back_B = al_load_bitmap("Fondo_Opc_1.png");
+	back_C = al_load_bitmap("Fondo_Opc_2.png");
+	back_D = al_load_bitmap("Fondo_Opc_3.png");
 	int mousex = 0;
 	int mousey = 0;
-	if (!background)
+	if (!background&&!back_A&&!back_B&&!back_C&&!back_D)
 	{
-		al_show_native_message_box(display, "Error", "Imagen no cargada", "La imagen no se pudo cargar", "Acepto", NULL);
+		al_show_native_message_box(display, "Error", "Imagen no cargada", "Uno de los recursos importantes no se encuentra", "Acepto", NULL);
 		return;
 	}
 	al_draw_bitmap(background, 0, 0, 0);
@@ -248,19 +282,23 @@ void menu(ALLEGRO_DISPLAY* display, ALLEGRO_BITMAP* background, ALLEGRO_EVENT_QU
 			mousey = eventos.mouse.y;
 		}
 		if (eventos.type == ALLEGRO_EVENT_MOUSE_BUTTON_UP) {
-			if (mousex > 480 && mousey > 344 && mousex < 700 && mousey < 394) {
+			if (mousex > 500 && mousey > 386 && mousex < 718 && mousey < 434) {
 				mainGame(display, background, cola_eventos);
 			}
-			else if (mousex > 495 && mousey > 449 && mousex < 691 && mousey < 498) {
+			else if (mousex > 418 && mousey > 499 && mousex < 741 && mousey < 547) {
+				//TODO: opcion de cargar partida aqui;
+				al_show_native_message_box(display, "Error", "Opcion aun no implementada", "Esta opcion aun no se implementa", "Acepto", NULL);
+			}
+			else if (mousex > 516 && mousey > 607 && mousex < 713 && mousey < 655) {
 				al_destroy_bitmap(back_A);
 				al_destroy_bitmap(back_B);
 				al_destroy_bitmap(back_C);
+				al_destroy_bitmap(back_D);
 				return;
 			}
 			
 		}
-		background = (mousex > 480 && mousey > 344 && mousex < 700 && mousey <394) ? (back_B) :((mousex > 495 && mousey > 449 && mousex < 691 && mousey <498) ? (back_C) : (back_A));
-		//mainGame(cola_eventos, display, background);
+		background = (mousex > 500 && mousey > 386 && mousex < 718 && mousey <434) ? (back_B) :((mousex > 481 && mousey > 499 && mousex < 741 && mousey <547) ? (back_C) : ((mousex > 516 && mousey > 607 && mousex < 713 && mousey < 655) ? (back_D): (back_A)));
 		al_draw_bitmap(background, 0, 0, 0);
 		al_flip_display();
 	}
@@ -279,6 +317,7 @@ void inicializar() {
 	for (int i = 0; i < 3; i++)
 	{	
 		tmp = new(nave);
+		tmp->codigo = i+1;
 		tmp->siguiente = vidas;
 		vidas = tmp;
 	}
@@ -289,7 +328,6 @@ void inicializar() {
 		tmpE->siguiente = enemigos;
 		enemigos = tmpE;
 	}
-	PtrBala tmpB;
 }
 
 int main()
