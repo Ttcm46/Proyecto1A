@@ -54,12 +54,14 @@ typedef struct Enemigo {
 	Enemigo* siguiente = NULL;
 	unsigned int lifeTime = 9500000;
 	ALLEGRO_BITMAP* img = NULL;
+	ALLEGRO_BITMAP* img_d = NULL;
 }*PtrEnemigo;
 
 const float FPS = 20.0;	//fps 
 PtrBala balas;
 PtrNave vidas;
 PtrEnemigo enemigos;
+PtrNave actual;
 bool left, right, up, down;
 int offsetx = 1000; int offsety = 0;
 int absx = 1000;
@@ -91,6 +93,7 @@ void disparar(int x,int y,bool iz,bool user) {
 	tmp->y = y;
 	tmp->direccion = iz;
 	tmp->suiguiente = balas;
+	tmp->playerShot = user;
 	if (tmp->suiguiente)tmp->suiguiente->anterior = tmp;
 	tmp->anterior = NULL;;
 	balas = tmp;
@@ -123,14 +126,16 @@ void eliminarBalas() {
 	}
 	eleminarBalaInact();
 }
+
 void spawnEnems() {
 	//TODO: hacerla :/
 }
-void bulletHits(PtrNave actual) {		//TODO: finish
+void bulletHits(ALLEGRO_DISPLAY* display) {		//TODO: finish
 	PtrBala tmp = balas;
 	PtrEnemigo tmpEnem= enemigos;
 	while (tmp){
-		std::cout << "condX: " << (actual->x + actual->hitBoxX > tmp->x - tmp->hurtboxX && actual->x - actual->hitBoxX < tmp->x + tmp->hurtboxX) << " condY: " << (actual->y + actual->hitBoxY > tmp->y - tmp->hurtboxY && actual->y - actual->hitBoxY < tmp->y + tmp->hurtboxY) << std::endl;
+		//espresion para comprobar impactos;
+		//std::cout << "condX: " << (actual->x + actual->hitBoxX > tmp->x - tmp->hurtboxX && actual->x - actual->hitBoxX < tmp->x + tmp->hurtboxX) << " condY: " << (actual->y + actual->hitBoxY > tmp->y - tmp->hurtboxY && actual->y - actual->hitBoxY < tmp->y + tmp->hurtboxY) << std::endl;
 		while (tmpEnem) {
 			if (tmp->playerShot && tmp->estado && (tmpEnem->x + tmpEnem->hitboxX > tmp->x - tmp->hurtboxX && tmpEnem->x - tmpEnem->hitboxX < tmp->x + tmp->hurtboxX)&& (tmpEnem->y + tmpEnem->hitboxY > tmp->y - tmp->hurtboxY && tmpEnem->y - tmpEnem->hitboxY < tmp->y + tmp->hurtboxY)) {
 				actual->enemigosDestruidos += 1;
@@ -138,23 +143,32 @@ void bulletHits(PtrNave actual) {		//TODO: finish
 
 				//TODO: comprobar funcionamiento
 			}
-			else if ((!tmp->playerShot) && tmp->estado && (tmpEnem->x + tmpEnem->hitboxX > tmp->x - tmp->hurtboxX && tmpEnem->x - tmpEnem->hitboxX < tmp->x + tmp->hurtboxX) && (tmpEnem->y + tmpEnem->hitboxY > tmp->y - tmp->hurtboxY && tmpEnem->y - tmpEnem->hitboxY < tmp->y + tmp->hurtboxY)) {
-
+			else if ((!tmp->playerShot) && tmp->estado && (actual->x + actual->hitBoxX > tmp->x - tmp->hurtboxX && actual->x - actual->hitBoxX < tmp->x + tmp->hurtboxX) && (actual->y + actual->hitBoxY > tmp->y - tmp->hurtboxY && actual->y - actual->hitBoxY < tmp->y + tmp->hurtboxY)) {
+				actual->estado = false;
+				actual = (vidas->estado) ? (vidas) : ((vidas->siguiente->estado) ? (vidas->siguiente) : ((vidas->siguiente->siguiente->estado) ? (vidas->siguiente->siguiente) : (NULL)));
+				tmp = balas;
+				while (tmp) {
+					tmp->estado = false;
+					tmp = tmp->suiguiente;
+				}
+				al_show_native_message_box(display, "Error", " ", "Ha perdido una vida", "Acepto", NULL);
+				offsetx = 1000;
+				return;
 			}
-				tmpEnem = tmpEnem->siguiente;
+			tmpEnem = tmpEnem->siguiente;
 		}
 		tmp = tmp->suiguiente;
 	}
 }
-void gameLogic(ALLEGRO_BITMAP* bullet, ALLEGRO_BITMAP* ship,PtrNave actual) {
-	bulletHits(actual);
+void gameLogic(ALLEGRO_BITMAP* bullet, ALLEGRO_BITMAP* ship,PtrNave actual, ALLEGRO_DISPLAY* display) {
+	bulletHits(display);
 	eliminarBalas();
 	drawBullets(bullet);
 	drawLifes(ship);
 }
 
 void mainGame(ALLEGRO_DISPLAY* display,ALLEGRO_BITMAP* background,ALLEGRO_EVENT_QUEUE* cola_eventos) {
-	PtrNave actual = (vidas->estado) ? (vidas) : ((vidas->siguiente->estado) ? (vidas->siguiente) : ((vidas->siguiente->siguiente->estado) ? (vidas->siguiente->siguiente) : (NULL)));
+	actual = (vidas->estado) ? (vidas) : ((vidas->siguiente->estado) ? (vidas->siguiente) : ((vidas->siguiente->siguiente->estado) ? (vidas->siguiente->siguiente) : (NULL)));
 	if (!actual) {
 		al_show_native_message_box(display, "Error", "NO tiene mas vidas", "No tiene mas vidas", "Acepto", NULL);
 		return;
@@ -174,7 +188,7 @@ void mainGame(ALLEGRO_DISPLAY* display,ALLEGRO_BITMAP* background,ALLEGRO_EVENT_
 	al_flip_display();
 	while (true)
 	{	
-
+		if (!actual)return;
 		ALLEGRO_EVENT events;
 		al_wait_for_event(cola_eventos, &events);
 		if (events.type == ALLEGRO_EVENT_KEY_DOWN) {
@@ -257,7 +271,7 @@ void mainGame(ALLEGRO_DISPLAY* display,ALLEGRO_BITMAP* background,ALLEGRO_EVENT_
 			std::cout << "Nave x: " << actual->x << " y: " << actual->y << " Disparos: " << actual->disparos << std::endl;
 			//std::cout << "Nave x: " << actual->x << " y: " << actual->y << " Disparos: " << actual->disparos << std::endl;
 		}
-		gameLogic(bullet, ship_L,actual);
+		gameLogic(bullet, ship_L,actual,display);
 		al_flip_display();
 
 		//TODO: cerrar todas la imagenes para no tener tanta basura por ahi
