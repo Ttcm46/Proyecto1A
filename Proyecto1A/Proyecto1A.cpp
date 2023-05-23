@@ -19,7 +19,7 @@
 typedef struct bala {
 	int x = -1;
 	int y = -1;
-	int velocidad = 2;
+	int velocidad = 20;
 	bool direccion = false;		//1 iz, 0 der
 	bool estado = true;
 	bool playerShot = false;
@@ -48,13 +48,13 @@ typedef struct Enemigo {
 	int x = -1;
 	int y = -1;
 	bool estado = false;
+	bool death = false;
 	int velocidad = 0;
 	int hitboxX = 50;
 	int hitboxY = 50;
 	Enemigo* siguiente = NULL;
 	unsigned int lifeTime = 9500000;
-	ALLEGRO_BITMAP* img = NULL;
-	ALLEGRO_BITMAP* img_d = NULL;
+	unsigned int deathDraw = 5000;
 }*PtrEnemigo;
 
 const float FPS = 20.0;	//fps 
@@ -66,6 +66,7 @@ bool left, right, up, down;
 int offsetx = 1000; int offsety = 0;
 int absx = 1000;
 int absy = 400;
+ALLEGRO_BITMAP* imgEnems[2][2];
  
 void drawLifes(ALLEGRO_BITMAP* ship) {
 	int i= (vidas->estado) ? (3) : ((vidas->siguiente->estado) ? (2) : ((vidas->siguiente->siguiente->estado) ? (1) : (0)));
@@ -76,15 +77,21 @@ void drawLifes(ALLEGRO_BITMAP* ship) {
 		x += 100;
 	}
 }
-void drawBullets(ALLEGRO_BITMAP* bullet) {
+void draw(ALLEGRO_BITMAP* bullet) {
 	PtrBala balAct = balas;
 	while (balAct)
 	{	
 		if (balAct->x > offsetx-600 && balAct->x < (offsetx + 600)) {
-			al_draw_bitmap(bullet, ((balAct->x) - (offsetx-600)) - 12, balAct->y-12, 0);
+			al_draw_bitmap(bullet, ((balAct->x) - (offsetx-600)) - balAct->hurtboxX, balAct->y-balAct->hurtboxY, 0);
 		}
 		balAct->x += (balAct->direccion) ? (-1*(balAct->velocidad)) : (balAct->velocidad);
 		balAct = balAct->suiguiente;
+	}
+	PtrEnemigo tmp = enemigos;
+	while (tmp) {
+		if(tmp->estado)
+		al_draw_bitmap(imgEnems[tmp->codigoimagen][tmp->death], (tmp->x-(offsetx-600)) - tmp->hitboxX, tmp->y - tmp->hitboxY, 0);
+		tmp = tmp->siguiente;
 	}
 }
 void disparar(int x,int y,bool iz,bool user) {
@@ -97,6 +104,8 @@ void disparar(int x,int y,bool iz,bool user) {
 	if (tmp->suiguiente)tmp->suiguiente->anterior = tmp;
 	tmp->anterior = NULL;;
 	balas = tmp;
+	if (!user)
+		tmp->velocidad = 10;;
 	
 }
 void eleminarBalaInact() {
@@ -126,9 +135,24 @@ void eliminarBalas() {
 	}
 	eleminarBalaInact();
 }
+PtrEnemigo accessEnem(int n) {
+	int i = 0;
+	PtrEnemigo tmp = enemigos;
+	while (i != n&&tmp!=NULL) {
+		tmp = tmp->siguiente;
+		i++;
+	}
+	return tmp;
+}
 
 void spawnEnems() {
-	//TODO: hacerla :/
+	PtrEnemigo a = (accessEnem(rand() % 5));
+	if ((a)&&(!a->estado) && (rand() % 2)) {
+		a->x = (rand() % ((2000 - a->hitboxX) - (a->hitboxX) + 1)) + a->hitboxX;
+		a->y = (rand() % ((800 - a->hitboxY) - a->hitboxY + 1)) + a->hitboxY;
+		a->estado = true;
+		a->codigoimagen = rand() % 2;
+	}
 }
 void bulletHits(ALLEGRO_DISPLAY* display) {		//TODO: finish
 	PtrBala tmp = balas;
@@ -137,13 +161,14 @@ void bulletHits(ALLEGRO_DISPLAY* display) {		//TODO: finish
 		//espresion para comprobar impactos;
 		//std::cout << "condX: " << (actual->x + actual->hitBoxX > tmp->x - tmp->hurtboxX && actual->x - actual->hitBoxX < tmp->x + tmp->hurtboxX) << " condY: " << (actual->y + actual->hitBoxY > tmp->y - tmp->hurtboxY && actual->y - actual->hitBoxY < tmp->y + tmp->hurtboxY) << std::endl;
 		while (tmpEnem) {
-			if (tmp->playerShot && tmp->estado && (tmpEnem->x + tmpEnem->hitboxX > tmp->x - tmp->hurtboxX && tmpEnem->x - tmpEnem->hitboxX < tmp->x + tmp->hurtboxX)&& (tmpEnem->y + tmpEnem->hitboxY > tmp->y - tmp->hurtboxY && tmpEnem->y - tmpEnem->hitboxY < tmp->y + tmp->hurtboxY)) {
+			if (tmp->estado&&tmp->playerShot && tmp->estado && (tmpEnem->x + tmpEnem->hitboxX > tmp->x - tmp->hurtboxX && tmpEnem->x - tmpEnem->hitboxX < tmp->x + tmp->hurtboxX)&& (tmpEnem->y + tmpEnem->hitboxY > tmp->y - tmp->hurtboxY && tmpEnem->y - tmpEnem->hitboxY < tmp->y + tmp->hurtboxY)) {
 				actual->enemigosDestruidos += 1;
 				tmpEnem->estado = false;
+				tmp->estado = false;
 
 				//TODO: comprobar funcionamiento
 			}
-			else if ((!tmp->playerShot) && tmp->estado && (actual->x + actual->hitBoxX > tmp->x - tmp->hurtboxX && actual->x - actual->hitBoxX < tmp->x + tmp->hurtboxX) && (actual->y + actual->hitBoxY > tmp->y - tmp->hurtboxY && actual->y - actual->hitBoxY < tmp->y + tmp->hurtboxY)) {
+			else if (tmp->estado&&(!tmp->playerShot) && tmp->estado && (actual->x + actual->hitBoxX > tmp->x - tmp->hurtboxX && actual->x - actual->hitBoxX < tmp->x + tmp->hurtboxX) && (actual->y + actual->hitBoxY > tmp->y - tmp->hurtboxY && actual->y - actual->hitBoxY < tmp->y + tmp->hurtboxY)) {
 				actual->estado = false;
 				actual = (vidas->estado) ? (vidas) : ((vidas->siguiente->estado) ? (vidas->siguiente) : ((vidas->siguiente->siguiente->estado) ? (vidas->siguiente->siguiente) : (NULL)));
 				tmp = balas;
@@ -151,7 +176,7 @@ void bulletHits(ALLEGRO_DISPLAY* display) {		//TODO: finish
 					tmp->estado = false;
 					tmp = tmp->suiguiente;
 				}
-				al_show_native_message_box(display, "Error", " ", "Ha perdido una vida", "Acepto", NULL);
+				al_show_native_message_box(display, ":(", " ", "Ha perdido una vida", "Acepto", NULL);
 				offsetx = 1000;
 				return;
 			}
@@ -160,11 +185,19 @@ void bulletHits(ALLEGRO_DISPLAY* display) {		//TODO: finish
 		tmp = tmp->suiguiente;
 	}
 }
+void enemyShoots() {
+	PtrEnemigo a = (accessEnem(rand() % 5));
+	if (rand() % 21 == 0)				//la cigarras deben saber lo quee hacen si cada 21 anhos salen y casi no se encuentran a otras especies de cigarras
+		disparar(a->x, a->y, ((a->x-actual->x)<0) ? (false) : (true), false);
+}
 void gameLogic(ALLEGRO_BITMAP* bullet, ALLEGRO_BITMAP* ship,PtrNave actual, ALLEGRO_DISPLAY* display) {
 	bulletHits(display);
 	eliminarBalas();
-	drawBullets(bullet);
+	draw(bullet);
 	drawLifes(ship);
+	spawnEnems();
+	enemyShoots();
+
 }
 
 void mainGame(ALLEGRO_DISPLAY* display,ALLEGRO_BITMAP* background,ALLEGRO_EVENT_QUEUE* cola_eventos) {
@@ -268,7 +301,7 @@ void mainGame(ALLEGRO_DISPLAY* display,ALLEGRO_BITMAP* background,ALLEGRO_EVENT_
 		if (events.type == ALLEGRO_EVENT_MOUSE_BUTTON_DOWN||(events.type== ALLEGRO_EVENT_KEY_DOWN&& events.keyboard.keycode==75)) {
 			disparar((actual->x+((ship==ship_L)?(-1*actual->hitBoxX):(actual->hitBoxX))), actual->y, (ship == ship_L) ? (true) : (false), true);
 			actual->disparos += 1;
-			std::cout << "Nave x: " << actual->x << " y: " << actual->y << " Disparos: " << actual->disparos << std::endl;
+			std::cout << "Nave x: " << actual->x << " y: " << actual->y << " Disparos: " << actual->disparos << " hits: " << actual->enemigosDestruidos << std::endl;
 			//std::cout << "Nave x: " << actual->x << " y: " << actual->y << " Disparos: " << actual->disparos << std::endl;
 		}
 		gameLogic(bullet, ship_L,actual,display);
@@ -350,19 +383,19 @@ void inicializar() {
 	}
 	PtrEnemigo tmpE;
 	
-	for (int i = 0; i < 10; i++)
+	for (int i = 0; i < 5; i++)
 	{
 		tmpE = new(Enemigo);
 		tmpE->siguiente = enemigos;
 		enemigos = tmpE;
-
 	}
+	imgEnems[0][0]= al_load_bitmap("enemigoBola.png");
+	imgEnems[1][0] = al_load_bitmap("enemigoPulpo.png");
 }
 
 int main()
 {	
 
-	inicializar();
 
 
 	ALLEGRO_DISPLAY* display;
@@ -380,6 +413,7 @@ int main()
 	al_install_keyboard();
 	al_install_mouse();
 
+	inicializar();
 
 	ALLEGRO_MONITOR_INFO monitor;
 	al_get_monitor_info(0, &monitor);
