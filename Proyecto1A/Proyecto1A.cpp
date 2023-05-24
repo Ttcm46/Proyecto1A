@@ -15,6 +15,8 @@
 #include <allegro5/allegro_image.h>
 #include <allegro5/allegro_audio.h>
 #include <allegro5/allegro_acodec.h>
+#include <fstream>
+using namespace std;
 
 typedef struct bala {
 	int x = -1;
@@ -62,14 +64,76 @@ PtrBala balas;
 PtrNave vidas;
 PtrEnemigo enemigos;
 PtrNave actual;
-bool left, right, up, down;
+bool leftA, rightA;
+bool up, down;
 int offsetx = 1000; int offsety = 0;
 int absx = 1000;
 int absy = 400;
 ALLEGRO_BITMAP* imgEnems[2][2];
  
+void setActual() {
+	PtrNave tmp = vidas;
+	while (tmp) {
+		if (tmp->estado) {
+			actual = tmp;
+			return;
+		}
+		tmp = tmp->siguiente;;
+	}
+	actual = NULL;
+}
+void input(ALLEGRO_DISPLAY* display)
+{
+	ifstream inputFile;
+	inputFile.open("input.txt", fstream::in);
+
+	if (inputFile.fail())
+	{
+		al_show_native_message_box(display, "Error", "No cuenta con una partida guardada en esta maquina", " ", "Acepto", NULL);
+	}
+
+	int a, b, c;
+	string destination;
+	PtrNave tmp = vidas;
+
+	while (inputFile.peek() != EOF)
+	{
+		inputFile >> a>>b>>c;
+		while (inputFile.peek() == ' ')
+			inputFile.get();
+			getline(inputFile, destination);
+			if (tmp) {
+				tmp->missed = c;
+				tmp->enemigosDestruidos = b;
+				tmp->disparos = a;
+				tmp = tmp->siguiente;
+			}
+			
+
+	}
+	al_show_native_message_box(display, "Exito", "Se cargo su Partida", " ", "Acepto", NULL);
+
+	inputFile.close();
+}
+void output() {
+	ofstream MyFile("input.txt");
+	PtrNave tmp = vidas;
+	while (tmp) {
+		MyFile << tmp->disparos <<" " << tmp->enemigosDestruidos << " "<<tmp->missed << "\n";
+		tmp = tmp->siguiente;
+	}
+	MyFile.close();
+}
+
 void drawLifes(ALLEGRO_BITMAP* ship) {
-	int i= (vidas->estado) ? (3) : ((vidas->siguiente->estado) ? (2) : ((vidas->siguiente->siguiente->estado) ? (1) : (0)));
+	int i = 0;
+	PtrNave tmp = vidas;
+	while (tmp) {
+		if (tmp->estado) {
+			i++;
+		}
+		tmp = tmp->siguiente;
+	}
 	int x = 0;
 	for (int j = 0; j < i; j++)
 	{
@@ -189,12 +253,13 @@ bool bulletHits(ALLEGRO_DISPLAY* display) {		//TODO: finish
 			}
 			else if (tmp->estado&&(!tmp->playerShot) && tmp->estado && (actual->x + actual->hitBoxX > tmp->x - tmp->hurtboxX && actual->x - actual->hitBoxX < tmp->x + tmp->hurtboxX) && (actual->y + actual->hitBoxY > tmp->y - tmp->hurtboxY && actual->y - actual->hitBoxY < tmp->y + tmp->hurtboxY)) {
 				actual->estado = false;
-				actual = (vidas->estado) ? (vidas) : ((vidas->siguiente->estado) ? (vidas->siguiente) : ((vidas->siguiente->siguiente->estado) ? (vidas->siguiente->siguiente) : (NULL)));
+				setActual();
 				tmp = balas;
 				while (tmp) {
 					tmp->estado = false;
 					tmp = tmp->suiguiente;
 				}
+				output();
 				al_show_native_message_box(display, ":(", " ", "Ha perdido una vida", "Acepto", NULL);
 				offsetx = 1000;
 				return true;
@@ -223,7 +288,7 @@ bool gameLogic(ALLEGRO_BITMAP* bullet, ALLEGRO_BITMAP* ship,PtrNave actual, ALLE
 }
 
 void mainGame(ALLEGRO_DISPLAY* display,ALLEGRO_BITMAP* background,ALLEGRO_EVENT_QUEUE* cola_eventos) {
-	actual = (vidas->estado) ? (vidas) : ((vidas->siguiente->estado) ? (vidas->siguiente) : ((vidas->siguiente->siguiente->estado) ? (vidas->siguiente->siguiente) : (NULL)));
+	setActual();
 	if (!actual) {
 		al_show_native_message_box(display, "Error", "NO tiene mas vidas", "No tiene mas vidas", "Acepto", NULL);
 		return;
@@ -261,10 +326,10 @@ void mainGame(ALLEGRO_DISPLAY* display,ALLEGRO_BITMAP* background,ALLEGRO_EVENT_
 				down = true;
 				break;
 			case ALLEGRO_KEY_A:
-				left = true;
+				leftA = true;
 				break;
 			case ALLEGRO_KEY_D:
-				right = true;
+				rightA = true;
 				break;
 			case ALLEGRO_KEY_UP:
 				up = true;
@@ -273,10 +338,10 @@ void mainGame(ALLEGRO_DISPLAY* display,ALLEGRO_BITMAP* background,ALLEGRO_EVENT_
 				down = true;
 				break;
 			case ALLEGRO_KEY_LEFT:
-				left = true;
+				leftA = true;
 				break;
 			case ALLEGRO_KEY_RIGHT:
-				right = true;
+				rightA = true;
 				break;
 			case ALLEGRO_KEY_ESCAPE:
 				return;
@@ -295,10 +360,10 @@ void mainGame(ALLEGRO_DISPLAY* display,ALLEGRO_BITMAP* background,ALLEGRO_EVENT_
 				down = false;
 				break;
 			case ALLEGRO_KEY_A:
-				left = false;
+				leftA = false;
 				break;
 			case ALLEGRO_KEY_D:
-				right = false;
+				rightA = false;
 				break;
 			case ALLEGRO_KEY_UP:
 				up = false;
@@ -307,10 +372,10 @@ void mainGame(ALLEGRO_DISPLAY* display,ALLEGRO_BITMAP* background,ALLEGRO_EVENT_
 				down = false;
 				break;
 			case ALLEGRO_KEY_LEFT:
-				left = false;
+				leftA = false;
 				break;
 			case ALLEGRO_KEY_RIGHT:
-				right = false;
+				rightA = false;
 				break;
 			case ALLEGRO_KEY_ESCAPE:
 				return;
@@ -321,8 +386,8 @@ void mainGame(ALLEGRO_DISPLAY* display,ALLEGRO_BITMAP* background,ALLEGRO_EVENT_
 		}
 		if (up) {actual->y -= actual->velocidad; }
 		if (down) { actual->y += actual->velocidad; }
-		if (left) { actual->x -= actual->velocidad; offsetx -= actual->velocidad; ship = ship_L; }
-		if (right) { actual->x += actual->velocidad; offsetx += actual->velocidad; ship = ship_R; }
+		if (leftA) { actual->x -= actual->velocidad; offsetx -= actual->velocidad; ship = ship_L; }
+		if (rightA) { actual->x += actual->velocidad; offsetx += actual->velocidad; ship = ship_R; }
 		al_draw_bitmap(background, -1*(offsetx-600), 0, 0);
 		al_draw_bitmap(ship, 550, actual->y-50, 0);
 		al_draw_textf(fontB, al_map_rgb(255, 0, 255), 1025, 0, ALLEGRO_ALIGN_CENTRE, "Disparos: %d Destruidos: %d", actual->disparos, actual->enemigosDestruidos);
@@ -336,7 +401,7 @@ void mainGame(ALLEGRO_DISPLAY* display,ALLEGRO_BITMAP* background,ALLEGRO_EVENT_
 			return;
 		}
 		al_flip_display();
-
+		//al_rest(0.1);
 		//TODO: cerrar todas la imagenes para no tener tanta basura por ahi
 	}
 
@@ -405,7 +470,7 @@ void menu(ALLEGRO_DISPLAY* display, ALLEGRO_BITMAP* background, ALLEGRO_EVENT_QU
 			}
 			else if (mousex > 481 && mousey > 440 && mousex < 737 && mousey < 487) {
 				//TODO: opcion de cargar partida aqui;
-				al_show_native_message_box(display, "Error", "Opcion aun no implementada", "Esta opcion aun no se implementa", "Acepto", NULL);
+				input(display);
 			}
 			else if (mousex > 384 && mousey > 541 && mousex < 860 && mousey < 589) {
 				stats(display,cola_eventos);
@@ -429,8 +494,8 @@ void inicializar() {
 	balas = NULL;
 	vidas = NULL;
 	enemigos = NULL;
-	left = false;
-	right = false;
+	leftA = false;
+	rightA = false;
 	up = false;
 	down = false;
 
@@ -451,6 +516,39 @@ void inicializar() {
 		enemigos = tmpE;
 	}
 	imgEnems[0][0]= al_load_bitmap("enemigoBola.png");
+	imgEnems[1][0] = al_load_bitmap("enemigoPulpo.png");
+	imgEnems[0][1] = al_load_bitmap("enemigoBolaD.png");
+	imgEnems[1][1] = al_load_bitmap("enemigoPulpoD.png");
+}
+void inicializarT() {
+	balas = NULL;
+	vidas = NULL;
+	enemigos = NULL;
+	leftA = false;
+	rightA = false;
+	up = false;
+	down = false;
+
+	PtrNave tmp;
+	for (int i = 0; i < 3; i++)
+	{
+		tmp = new(nave);
+		tmp->codigo = i + 1;
+		tmp->disparos = i+5;
+		tmp->enemigosDestruidos = 50+i;
+		tmp->missed = 11+i;
+		tmp->siguiente = vidas;
+		vidas = tmp;
+	}
+	PtrEnemigo tmpE;
+
+	for (int i = 0; i < 5; i++)
+	{
+		tmpE = new(Enemigo);
+		tmpE->siguiente = enemigos;
+		enemigos = tmpE;
+	}
+	imgEnems[0][0] = al_load_bitmap("enemigoBola.png");
 	imgEnems[1][0] = al_load_bitmap("enemigoPulpo.png");
 	imgEnems[0][1] = al_load_bitmap("enemigoBolaD.png");
 	imgEnems[1][1] = al_load_bitmap("enemigoPulpoD.png");
@@ -477,6 +575,7 @@ int main()
 	al_install_mouse();
 
 	inicializar();
+	//output();
 
 	ALLEGRO_MONITOR_INFO monitor;
 	al_get_monitor_info(0, &monitor);
