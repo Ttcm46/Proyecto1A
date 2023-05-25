@@ -90,6 +90,7 @@ void input(ALLEGRO_DISPLAY* display)
 	if (inputFile.fail())
 	{
 		al_show_native_message_box(display, "Error", "No cuenta con una partida guardada en esta maquina", " ", "Acepto", NULL);
+		return;
 	}
 
 	int a, b, c;
@@ -259,6 +260,10 @@ bool bulletHits(ALLEGRO_DISPLAY* display) {		//TODO: finish
 					tmp->estado = false;
 					tmp = tmp->suiguiente;
 				}
+				leftA = false;
+				rightA = false;
+				up = false;
+				down = false;
 				output();
 				al_show_native_message_box(display, ":(", " ", "Ha perdido una vida", "Acepto", NULL);
 				offsetx = 1000;
