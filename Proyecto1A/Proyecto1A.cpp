@@ -67,8 +67,6 @@ PtrNave actual;
 bool leftA, rightA;
 bool up, down;
 int offsetx = 1000; int offsety = 0;
-int absx = 1000;
-int absy = 400;
 ALLEGRO_BITMAP* imgEnems[2][2];
  
 void setActual() {
@@ -104,6 +102,9 @@ void input(ALLEGRO_DISPLAY* display)
 			inputFile.get();
 			getline(inputFile, destination);
 			if (tmp) {
+				if (a != 0 || b != 0 || c != 0) {
+					tmp->estado = false;
+				}
 				tmp->missed = c;
 				tmp->enemigosDestruidos = b;
 				tmp->disparos = a;
@@ -178,7 +179,7 @@ void disparar(int x,int y,bool iz,bool user) {
 	tmp->anterior = NULL;;
 	balas = tmp;
 	if (!user)
-		tmp->velocidad = 10;;
+		tmp->velocidad = 10;
 	
 }
 void eleminarBalaInact() {
@@ -399,7 +400,7 @@ void mainGame(ALLEGRO_DISPLAY* display,ALLEGRO_BITMAP* background,ALLEGRO_EVENT_
 		if (events.type == ALLEGRO_EVENT_MOUSE_BUTTON_DOWN||(events.type== ALLEGRO_EVENT_KEY_DOWN&& events.keyboard.keycode==75)) {
 			disparar((actual->x+((ship==ship_L)?(-1*actual->hitBoxX):(actual->hitBoxX))), actual->y, (ship == ship_L) ? (true) : (false), true);
 			actual->disparos += 1;
-			std::cout << "Nave x: " << actual->x << " y: " << actual->y << " Disparos: " << actual->disparos << " hits: " << actual->enemigosDestruidos << std::endl;
+			//std::cout << "Nave x: " << actual->x << " y: " << actual->y << " Disparos: " << actual->disparos << " hits: " << actual->enemigosDestruidos << std::endl;
 			//std::cout << "Nave x: " << actual->x << " y: " << actual->y << " Disparos: " << actual->disparos << std::endl;
 		}
 		if (gameLogic(bullet, ship_L, actual, display)) {
